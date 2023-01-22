@@ -1,34 +1,38 @@
 #[cfg(feature = "ssr")]
-#[actix_web::main]
+#[tokio::main]
 async fn main() -> std::io::Result<()> {
-    use actix_files::Files;
-    use actix_web::*;
+    use axum::{
+        extract::Extension,
+        routing::{get, post},
+        Router,
+    };
     use leptos::*;
-    use leptos_actix::{generate_route_list, LeptosRoutes};
-    use leptos_start::app::*;
+    use leptos_axum::{generate_route_list, LeptosRoutes};
+    use leptos_start::{app::*, file::file_handler};
+    use std::sync::Arc;
 
     let conf = get_configuration(None).await.unwrap();
     let addr = conf.leptos_options.site_address;
     // Generate the list of routes in your Leptos App
-    let routes = generate_route_list(|cx| view! { cx, <App/> });
+    let routes = generate_route_list(|cx| view! { cx, <App/> }).await;
 
-    HttpServer::new(move || {
-        let leptos_options = &conf.leptos_options;
-        let site_root = &leptos_options.site_root;
+    let leptos_options = conf.leptos_options;
 
-        App::new()
-            .route("/api/{tail:.*}", leptos_actix::handle_server_fns())
-            .leptos_routes(
-                leptos_options.to_owned(),
-                routes.to_owned(),
-                |cx| view! { cx, <App/> },
-            )
-            .service(Files::new("/", site_root))
-        //.wrap(middleware::Compress::default())
-    })
-    .bind(&addr)?
-    .run()
-    .await
+    // build our application with a route
+    let app = Router::new()
+        .route("/api/*fn_name", post(leptos_axum::handle_server_fns))
+        .route("/favicon.ico", get(file_handler))
+        .leptos_routes(leptos_options.clone(), routes, |cx| view! { cx, <App/> })
+        .fallback(file_handler)
+        .layer(Extension(Arc::new(leptos_options)));
+    // run our app with hyper
+    // `axum::Server` is a re-export of `hyper::Server`
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
+    log!("listening on {}", &addr);
+    Ok(())
 }
 
 #[cfg(not(feature = "ssr"))]

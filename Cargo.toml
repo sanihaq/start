@@ -7,8 +7,10 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-actix-files = { version = "0.6", optional = true }
-actix-web = { version = "4", optional = true, features = ["openssl", "macros"] }
+axum = { version = "0.6", optional = true }
+tokio = { version = "1.24", features = ["full"], optional = true }
+tower = { version = "0.4.13", optional = true }
+tower-http = { version = "0.3.5", features = ["fs"], optional = true }
 console_error_panic_hook = "0.1"
 console_log = "0.2"
 cfg-if = "1"
@@ -16,22 +18,39 @@ leptos = { git = "https://github.com/leptos-rs/leptos", default-features = false
   "serde",
 ] }
 leptos_meta = { git = "https://github.com/leptos-rs/leptos", default-features = false }
-leptos_actix = { git = "https://github.com/leptos-rs/leptos", optional = true }
+leptos_axum = { git = "https://github.com/leptos-rs/leptos", optional = true }
 leptos_router = { git = "https://github.com/leptos-rs/leptos", default-features = false }
 log = "0.4"
 simple_logger = "4"
 wasm-bindgen = "0.2"
 
 [features]
+default = ["csr"]
+leptos_autoreload = []
+csr = ["leptos/csr", "leptos_meta/csr", "leptos_router/csr"]
 hydrate = ["leptos/hydrate", "leptos_meta/hydrate", "leptos_router/hydrate"]
 ssr = [
-  "dep:actix-files",
-  "dep:actix-web",
-  "dep:leptos_actix",
+  "dep:axum",
+  "leptos_axum",
+  "dep:tokio",
+  "dep:tower",
+  "dep:tower-http",
   "leptos/ssr",
   "leptos_meta/ssr",
   "leptos_router/ssr",
 ]
+
+[package.metadata.cargo-all-features]
+denylist = [
+  "axum",
+  "tower",
+  "tower-http",
+  "tokio",
+  "http",
+  "sqlx",
+  "leptos_axum",
+]
+skip_feature_sets = [["csr", "ssr"], ["csr", "hydrate"], ["ssr", "hydrate"]]
 
 [package.metadata.leptos]
 # The name used by wasm-bindgen/cargo-leptos for the JS/WASM bundle. Defaults to the crate name   
